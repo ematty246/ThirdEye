@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>THIRD EYE — AI Forensic Reconstruction</title>
+  <link rel="stylesheet" href="css/style.css">
+
+  <style>
+    .version-selector-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: 18px;
+    }
+
+    .version-select {
+      min-width: 150px;
+      padding: 8px 34px 8px 10px;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 8px;
+      background: #0d141d;
+      color: #e8eef7;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .version-select:focus {
+      border-color: rgba(59,130,246,.8);
+      box-shadow: 0 0 0 2px rgba(59,130,246,.15);
+    }
+
+    @media (max-width: 760px) {
+      .version-selector-wrap {
+        margin-left: 0;
+        margin-top: 10px;
+      }
+      .viewer-toolbar {
+        flex-wrap: wrap;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-mark">TE</div>
+        <div>
+          <div class="brand-name">THIRD EYE</div>
+          <div class="brand-subtitle">AI FORENSIC RECONSTRUCTION SYSTEM</div>
+        </div>
+      </div>
+
+      <div class="topbar-case">
+        <span class="eyebrow">CURRENT CASE</span>
+        <select id="caseSelect" class="case-select" aria-label="Select existing case">
+          <option value="">SELECT CASE</option>
+        </select>
+      </div>
+
+      <div class="topbar-status">
+        <span id="apiDot" class="status-dot offline"></span>
+        <span id="apiStatusText">API OFFLINE</span>
+        <button class="icon-btn" id="refreshApiBtn" title="Check API status">↻</button>
+      </div>
+    </header>
+
+    <aside class="sidebar">
+      <div class="nav-section-label">WORKSPACE</div>
+      <button class="nav-item active" data-view="dashboard"><span class="nav-icon">⌂</span> Dashboard</button>
+      <button class="nav-item" data-view="case"><span class="nav-icon">▣</span> Case Workspace</button>
+      <button class="nav-item" data-view="witnesses"><span class="nav-icon">◉</span> Witnesses</button>
+      <button class="nav-item" data-view="reconstruction"><span class="nav-icon">▤</span> Reconstruction</button>
+      <button class="nav-item" data-view="history"><span class="nav-icon">◷</span> Version History</button>
+      <button class="nav-item" data-view="report"><span class="nav-icon">▤</span> Report</button>
+
+      <div class="sidebar-bottom">
+        <div class="system-card">
+          <div class="system-card-title">SYSTEM STATUS</div>
+          <div class="system-row"><span>API</span><span id="sideApiStatus" class="pill pill-danger">OFFLINE</span></div>
+          <div class="system-row"><span>DATABASE</span><span class="pill pill-neutral">SUPABASE</span></div>
+          <div class="system-row"><span>AI ENGINE</span><span class="pill pill-neutral">READY</span></div>
+        </div>
+        <div class="version-label">THIRD EYE v1.0</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <!-- DASHBOARD -->
+      <section id="view-dashboard" class="view active">
+        <div class="page-head">
+          <div>
+            <div class="eyebrow">FORENSIC OPERATIONS</div>
+            <h1>Investigation Dashboard</h1>
+            <p>Witness-guided facial reconstruction workstation.</p>
+          </div>
+          <button class="primary-btn" id="newCaseBtn">＋ New Case</button>
+        </div>
+
+        <div class="stat-grid">
+          <div class="stat-card"><span>ACTIVE CASE</span><strong id="statCase">—</strong><small>Current workspace</small></div>
+          <div class="stat-card"><span>WITNESSES</span><strong id="statWitnesses">0</strong><small>Current case</small></div>
+          <div class="stat-card"><span>RECONSTRUCTION</span><strong id="statVersion">—</strong><small>Latest version</small></div>
+          <div class="stat-card"><span>API</span><strong id="statApi">OFFLINE</strong><small>FastAPI connection</small></div>
+        </div>
+
+        <div class="dashboard-grid">
+          <div class="panel">
+            <div class="panel-head">
+              <div><span class="eyebrow">CURRENT OPERATION</span><h2 id="dashCaseTitle">No case selected</h2></div>
+              <span id="dashCaseBadge" class="badge badge-neutral">STANDBY</span>
+            </div>
+            <div class="operation-flow">
+              <div class="flow-step done"><span>01</span><b>Case</b><small>Create investigation</small></div>
+              <div class="flow-line"></div>
+              <div class="flow-step"><span>02</span><b>Witnesses</b><small>Collect statements</small></div>
+              <div class="flow-line"></div>
+              <div class="flow-step"><span>03</span><b>AI Analysis</b><small>Consolidate evidence</small></div>
+              <div class="flow-line"></div>
+              <div class="flow-step"><span>04</span><b>Reconstruction</b><small>Generate version</small></div>
+            </div>
+          </div>
+
+          <div class="panel quick-panel">
+            <div class="panel-head"><div><span class="eyebrow">QUICK ACTIONS</span><h2>Investigator Tools</h2></div></div>
+            <button class="action-row" id="dashAddWitness">＋ <span><b>Add witness statement</b><small>Record new testimony</small></span></button>
+            <button class="action-row" id="dashGenerate">◇ <span><b>Generate reconstruction</b><small>Run current case through AI</small></span></button>
+            <button class="action-row" id="dashHistory">◷ <span><b>Review version history</b><small>Inspect reconstruction changes</small></span></button>
+          </div>
+        </div>
+      </section>
+
+      <!-- CASE -->
+      <section id="view-case" class="view">
+        <div class="page-head">
+          <div>
+            <div class="eyebrow">CASE MANAGEMENT</div>
+            <h1 id="caseTitle">No Case</h1>
+            <p id="caseMeta">Create a case to begin the reconstruction workflow.</p>
+          </div>
+          <button class="primary-btn" id="caseGenerateBtn">Generate Reconstruction</button>
+        </div>
+
+        <div class="case-grid">
+          <div class="panel case-summary">
+            <div class="panel-head"><div><span class="eyebrow">CASE FILE</span><h2>Investigation Record</h2></div><span id="caseStatus" class="badge badge-neutral">STANDBY</span></div>
+            <div class="metadata-grid">
+              <div><span>CASE ID</span><b id="caseIdField">—</b></div>
+              <div><span>CASE NAME</span><b id="caseNameField">—</b></div>
+              <div><span>WITNESSES</span><b id="caseWitnessCount">0</b></div>
+              <div><span>LATEST VERSION</span><b id="caseVersion">—</b></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-head"><div><span class="eyebrow">CURRENT RECONSTRUCTION</span><h2>Evidence Preview</h2></div><button class="ghost-btn" id="caseOpenReconstruction">Open Viewer</button></div>
+            <div id="casePreview" class="mini-preview empty-preview">NO RECONSTRUCTION AVAILABLE</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- WITNESSES -->
+      <section id="view-witnesses" class="view">
+        <div class="page-head">
+          <div>
+            <div class="eyebrow">TESTIMONY COLLECTION</div>
+            <h1>Witness Statements</h1>
+            <p>Current statements are sent together to the reconstruction engine.</p>
+          </div>
+          <button class="primary-btn" id="addWitnessBtn">＋ Add Witness</button>
+        </div>
+        <div id="witnessList" class="witness-list"></div>
+      </section>
+
+      <!-- RECONSTRUCTION -->
+      <section id="view-reconstruction" class="view">
+        <div class="page-head compact">
+          <div>
+            <div class="eyebrow">AI RECONSTRUCTION</div>
+            <h1>Forensic Reconstruction Workbench</h1>
+            <p id="reconSubtitle">No reconstruction generated.</p>
+          </div>
+          <button class="primary-btn" id="generateBtn">Generate Reconstruction</button>
+        </div>
+
+        <div class="reconstruction-layout">
+          <div class="panel viewer-panel">
+            <div class="viewer-toolbar">
+              <div>
+                <span class="eyebrow">CURRENT VERSION</span>
+                <strong id="viewerVersion">V—</strong>
+              </div>
+              <div class="version-selector-wrap">
+                <label for="versionSelect" class="eyebrow">VIEW VERSION</label>
+                <select id="versionSelect" class="version-select" aria-label="Select reconstruction version">
+                  <option value="">LATEST VERSION</option>
+                </select>
+              </div>
+              <div class="viewer-tools">
+                <button class="small-btn" id="zoomOut">−</button>
+                <button class="small-btn" id="zoomReset">100%</button>
+                <button class="small-btn" id="zoomIn">＋</button>
+                <button class="small-btn" id="fullscreenBtn">⛶</button>
+              </div>
+            </div>
+            <div id="imageViewer" class="image-viewer">
+              <div class="empty-viewer">
+                <div class="crosshair">＋</div>
+                <b>NO RECONSTRUCTION</b>
+                <span>Generate a case reconstruction to populate the viewer.</span>
+              </div>
+            </div>
+            <div class="viewer-footer">
+              <span>THIRD EYE / FORENSIC EVIDENCE VIEWER</span>
+              <span id="imageResolution">—</span>
+            </div>
+          </div>
+
+          <div class="recon-side">
+            <div class="panel">
+              <div class="panel-head"><div><span class="eyebrow">WITNESS INPUT</span><h2>Current Testimony</h2></div><button class="ghost-btn" id="refreshWitnessesBtn">Refresh</button></div>
+              <div id="reconWitnesses" class="compact-witnesses"></div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head"><div><span class="eyebrow">AI ANALYSIS</span><h2>Reconstruction Findings</h2></div></div>
+              <div class="analysis-block"><span>CONSOLIDATED DESCRIPTION</span><p id="consolidatedText">No analysis available.</p></div>
+              <div class="analysis-block change-block"><span>CHANGE INSTRUCTION</span><p id="changeText">No visual change.</p></div>
+            </div>
+
+            <div class="panel technical">
+              <div class="panel-head"><div><span class="eyebrow">TECHNICAL RECORD</span><h2>Generation Metadata</h2></div></div>
+              <div class="tech-list">
+                <div><span>Generation ID</span><b id="generationId">—</b></div>
+                <div><span>Storage Path</span><b id="storagePath">—</b></div>
+                <div><span>Source Image</span><b id="sourceImage">—</b></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- HISTORY -->
+      <section id="view-history" class="view">
+        <div class="page-head">
+          <div><div class="eyebrow">AUDIT TRAIL</div><h1>Version History</h1><p>Every saved reconstruction version returned by the backend.</p></div>
+          <button class="ghost-btn" id="refreshHistoryBtn">↻ Refresh History</button>
+        </div>
+        <div id="historyList" class="history-list"></div>
+      </section>
+
+      <!-- REPORT -->
+      <section id="view-report" class="view">
+        <div class="page-head">
+          <div><div class="eyebrow">CASE DOCUMENTATION</div><h1>Forensic Reconstruction Report</h1><p>Printable case summary based on data currently available through the API.</p></div>
+          <button class="primary-btn" id="printReportBtn">Print Report</button>
+        </div>
+        <div id="reportSheet" class="report-sheet">
+          <div class="report-header">
+            <div><div class="report-logo">THIRD EYE</div><div>AI FORENSIC RECONSTRUCTION SYSTEM</div></div>
+            <div class="report-classification">CASE WORK PRODUCT</div>
+          </div>
+          <div class="report-meta">
+            <div><span>CASE ID</span><b id="reportCaseId">—</b></div>
+            <div><span>CASE NAME</span><b id="reportCaseName">—</b></div>
+            <div><span>VERSION</span><b id="reportVersion">—</b></div>
+          </div>
+          <h3>Witness Statements</h3>
+          <div id="reportWitnesses" class="report-text">No witnesses.</div>
+          <h3>Consolidated Description</h3>
+          <div id="reportDescription" class="report-text">No reconstruction.</div>
+          <h3>Change Instruction</h3>
+          <div id="reportChange" class="report-text">No visual change.</div>
+          <div class="report-image-wrap"><img id="reportImage" alt="Current reconstruction" hidden></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div id="modal" class="modal-backdrop hidden">
+    <div class="modal">
+      <div class="modal-head">
+        <div><span id="modalEyebrow" class="eyebrow">WITNESS</span><h2 id="modalTitle">Add Witness</h2></div>
+        <button class="icon-btn" id="closeModal">×</button>
+      </div>
+      <label id="caseNameLabel" class="field-label hidden">CASE NAME</label>
+      <input id="caseNameInput" class="field hidden" placeholder="Enter case name">
+      <label id="statementLabel" class="field-label">WITNESS STATEMENT</label>
+      <textarea id="statementInput" class="field textarea" rows="7" placeholder="Enter the witness's natural-language description..."></textarea>
+      <div class="char-count"><span id="charCount">0</span> characters</div>
+      <div class="modal-actions">
+        <button class="ghost-btn" id="cancelModal">Cancel</button>
+        <button class="primary-btn" id="saveModal">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="processingOverlay" class="processing-overlay hidden">
+    <div class="processing-card">
+      <div class="processing-kicker">THIRD EYE / AI ENGINE</div>
+      <h2>Generating Reconstruction</h2>
+      <p>Processing the current case. Do not close this window.</p>
+      <div class="processing-steps">
+        <div class="processing-step active" data-step="1"><span>01</span><b>Collecting witness statements</b></div>
+        <div class="processing-step" data-step="2"><span>02</span><b>Consolidating witness information</b></div>
+        <div class="processing-step" data-step="3"><span>03</span><b>Analyzing reconstruction changes</b></div>
+        <div class="processing-step" data-step="4"><span>04</span><b>Generating forensic reconstruction</b></div>
+        <div class="processing-step" data-step="5"><span>05</span><b>Saving reconstruction version</b></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toastContainer" class="toast-container"></div>
+  <script src="js/app.js"></script>
+</body>
+</html>
